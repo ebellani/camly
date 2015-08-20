@@ -1,0 +1,17 @@
+OASISFormat: 0.4
+Name:        Camly
+Version:     0.0.1
+Synopsis:    Chat program to test the waters with async programming.
+Authors:     Eduardo Bellani <ebellani@gmail.com>
+License:     http://unlicense.org
+
+BuildTools : ocamlbuild
+Plugins: META (0.4), DevFiles (0.4)
+
+Executable main
+  Path:   src
+  MainIs: echo.ml
+  BuildDepends: core,
+                async,
+                threads
+  CompiledObject: best
