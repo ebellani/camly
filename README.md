@@ -11,14 +11,17 @@ $ ./configure && make
 
 # Run
 
-```
-$ ./echo.native
-```
-
-# Test
-
-You can use netcat to test the echo. Just type something after running:
+Start a server by running:
 
 ```
-$ nc 127.0.0.1 8765
+$ ./chat.native
 ```
+
+Start a client by running:
+
+```
+$ ./chat.native -server false
+```
+
+Just type things in the terminal for each process. This should print
+the text in the other side.
