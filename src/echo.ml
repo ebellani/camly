@@ -1,32 +1,41 @@
 open Core.Std
 open Async.Std
 
-(** Copy data from the reader to the writer, using the provided buffer
-    as scratch space *)
-let rec copy_blocks buffer r w =
-  Reader.read r buffer
-  >>= function
-  | `Eof -> return ()
-  | `Ok bytes_read ->
-     Writer.write w buffer ~len:bytes_read;
-     Writer.flushed w
-     >>= fun () ->
-     copy_blocks buffer r w
+let from_endpoint_transfer r =
+  Pipe.transfer_id (Reader.pipe r)
+                   (Writer.pipe (Lazy.force Writer.stdout))
 
-(** Starts a TCP server, which listens on the specified port, invoking
-    copy_blocks every time a client connects. *)
-let run () =
+let to_endpoint_transfer w =
+  Pipe.transfer_id (Reader.pipe (Lazy.force Reader.stdin))
+                   (Writer.pipe w)
+
+let full_transfer w r =
+  from_endpoint_transfer r;
+  to_endpoint_transfer w
+
+let connect ~port =
+  (Tcp.with_connection (Tcp.to_host_and_port "localhost" port)
+                       (fun _addr r w -> full_transfer w r));
+  Deferred.never ()
+
+let serve ~port =
   let host_and_port =
     Tcp.Server.create
       ~on_handler_error:`Raise
-      (Tcp.on_port 8765)
-      (fun _addr r w ->
-       let buffer = String.create (16 * 1024) in
-       copy_blocks buffer r w)
+      (Tcp.on_port port)
+      (fun _addr r w -> full_transfer w r)
   in
-  ignore (host_and_port : (Socket.Address.Inet.t, int) Tcp.Server.t Deferred.t)
+  ignore (host_and_port : (Socket.Address.Inet.t, int) Tcp.Server.t Deferred.t);
+  Deferred.never ()
 
-(** Calls [run], and then start the scheduler *)
 let () =
-  run ();
-  never_returns (Scheduler.go ())
+  Command.async_basic
+    ~summary:"Start an echo server"
+    Command.Spec.(
+    empty
+    +> flag "-port" (optional_with_default 8765 int)
+            ~doc:" Port to listen on (default 8765)"
+    +> flag "-server" (optional_with_default true bool)
+            ~doc:" Starts as a server or as a client. Defaults to false (client mode.)"
+  ) (fun port server () -> if server then serve ~port else connect ~port)
+  |> Command.run
