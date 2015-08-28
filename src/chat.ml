@@ -11,7 +11,7 @@ let from_endpoint w r =
   Pipe.iter r
             ~f:(fun value ->
                 if value = confirmation
-                then Deferred.unit (* confirmed. *)
+                then Pipe.write stdout "Message was received successfully.\n"
                 else Pipe.write stdout value
                      >>= (fun () -> Pipe.write w confirmation))
             ~continue_on_error:true
